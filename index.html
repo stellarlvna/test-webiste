@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>soul.exe — lvnaris' room</title>
+  <meta name="description" content="soul.exe — a portfolio. Welcome to lvnaris' room.">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Dosis:wght@400;500;600&family=Pixelify+Sans:wght@400..700&family=Playfair+Display:wght@400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="viewport" class="is-loading" data-bg="desktop">
+    <!-- Matching blurred fill for any space around the 16:9 stage -->
+    <div class="backdrop backdrop-desktop" aria-hidden="true"></div>
+    <div class="backdrop backdrop-room" aria-hidden="true"></div>
+
+    <main id="stage">
+
+      <!-- Shared room artwork: used by the title menu AND the difficulty screen -->
+      <div id="room-layer" aria-hidden="true">
+        <img class="room-bg pixel" data-asset="room" alt="" draggable="false">
+        <div class="room-dim"></div>
+      </div>
+
+      <!-- SCREEN: cartridge (desktop + console) -->
+      <section id="startup" data-screen="cartridge" aria-label="Start screen">
+        <h1 class="sr-only">soul.exe</h1>
+        <div id="world">
+          <img class="desktop-bg pixel" data-asset="desktop" alt="" draggable="false">
+          <p class="instruction" id="instruction">insert game card to start.</p>
+
+          <button class="cartridge" id="cartridge" type="button" aria-label="Insert the soul.exe game card to start">
+            <img class="pixel" data-asset="cartridge" alt="" draggable="false">
+          </button>
+
+          <div class="console" id="console">
+            <img class="console-art pixel" data-asset="console" alt="" draggable="false">
+            <div class="lcd" id="lcd">
+              <img class="lcd-room pixel" id="lcd-room" data-asset="room" alt="" draggable="false">
+              <p class="lcd-text" id="lcd-text" role="status"></p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN: room (title + menu) -->
+      <section id="room-ui" data-screen="room" aria-label="Title screen">
+        <header class="room-title">
+          <p class="welcome">Welcome to</p>
+          <h1>lvnaris’room</h1>
+        </header>
+        <nav aria-label="Main menu">
+          <ul class="menu" id="menu"></ul>
+        </nav>
+      </section>
+
+      <!-- SCREEN: difficulty -->
+      <section id="difficulty-ui" data-screen="difficulty" aria-labelledby="difficulty-heading">
+        <button class="btn back-btn" id="back-btn" type="button"><span aria-hidden="true">◀</span> Back</button>
+        <h2 class="difficulty-heading" id="difficulty-heading">Select your difficulty</h2>
+        <ul class="cards" id="cards"></ul>
+      </section>
+
+      <!-- Modals -->
+      <div id="modal-layer" hidden>
+        <div class="modal-scrim" data-close></div>
+
+        <div class="modal" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden tabindex="-1">
+          <h2 class="modal-title" id="settings-title">Settings</h2>
+          <label class="switch">
+            <input type="checkbox" id="reduced-toggle" role="switch" aria-describedby="reduced-hint">
+            <span class="track" aria-hidden="true"><span class="thumb"></span></span>
+            <span class="switch-label">Reduced motion</span>
+          </label>
+          <p class="hint" id="reduced-hint">Use short fades instead of large zooms and movement.</p>
+          <div class="modal-actions">
+            <button class="btn" type="button" data-close>Close</button>
+          </div>
+        </div>
+
+        <div class="modal" id="project-modal" role="dialog" aria-modal="true" aria-labelledby="project-title" aria-describedby="project-text" hidden tabindex="-1">
+          <p class="modal-kicker" id="project-kicker"></p>
+          <h2 class="modal-title" id="project-title"></h2>
+          <p class="modal-text" id="project-text">This page is coming soon.</p>
+          <div class="modal-actions">
+            <button class="btn" type="button" data-close>Close</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Only shown if an artwork file fails to load -->
+      <p class="asset-warning" id="asset-warning" role="status" hidden></p>
+    </main>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
