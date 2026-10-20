@@ -16,11 +16,12 @@
   --font-body: 'Dosis', 'Trebuchet MS', 'Segoe UI', sans-serif;
 
   /* Console screen position, as fractions of the console's WIDTH.
-     Calibrate these against console.png if your artwork differs. */
-  --lcd-x: 0.131;
-  --lcd-y: 0.177;
-  --lcd-w: 0.74;
-  --lcd-h: 0.489;
+     Measured from the supplied console.png (498×704): screen = x87 y87 w324 h211.
+     Recalibrate if you re-export the console art. */
+  --lcd-x: 0.1747;
+  --lcd-y: 0.1747;
+  --lcd-w: 0.6506;
+  --lcd-h: 0.4237;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -62,7 +63,9 @@ img { user-select: none; -webkit-user-drag: none; }
   position: fixed;
   inset: 0;
   overflow: hidden;
+  overflow: clip;            /* nothing here may ever scroll (focus, find-in-page, assistive tools) */
   background: var(--mint);
+  transition: background-color 0.6s ease;
 }
 
 .backdrop {
@@ -72,10 +75,13 @@ img { user-select: none; -webkit-user-drag: none; }
   background-position: center;
   transition: opacity 0.7s ease;
 }
-.backdrop-desktop { background-image: var(--img-desktop); filter: blur(16px); opacity: 1; }
+.backdrop-desktop { background-color: #fff; background-image: var(--img-desktop); filter: blur(16px); opacity: 0; }  /* art is 79% opaque: designed to sit on white */
 .backdrop-room    { background-image: var(--img-room);    filter: blur(16px) brightness(0.55); opacity: 0; }
-#viewport[data-bg="room"] .backdrop-desktop { opacity: 0; }
-#viewport[data-bg="room"] .backdrop-room    { opacity: 1; }
+.backdrop-gallery { background-image: var(--img-gallery); filter: blur(16px); opacity: 0; }
+#viewport[data-bg="desktop"] .backdrop-desktop { opacity: 1; }
+#viewport[data-bg="room"] .backdrop-room       { opacity: 1; }
+#viewport[data-bg="gallery"] .backdrop-gallery { opacity: 1; }
+#viewport[data-bg="black"] { background: #000; }   /* Gallery loading screen: no backdrop, plain black */
 
 /* ---------- stage ---------- */
 
@@ -89,6 +95,7 @@ img { user-select: none; -webkit-user-drag: none; }
   transform: scale(var(--k, 1));
   transform-origin: 50% 50%;
   overflow: hidden;
+  overflow: clip;
   background: var(--mint);
   transition: opacity 0.5s ease;
 }
@@ -106,11 +113,13 @@ img { user-select: none; -webkit-user-drag: none; }
   visibility: hidden; opacity: 0;
 }
 #room-ui, #difficulty-ui { z-index: 3; visibility: hidden; opacity: 0; }
+.room-bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }   /* supplied art is 1366×768: fit the 1600×900 stage */
 
 /* ---------- screen 1–3: desktop, cartridge, console ---------- */
 
 #world { position: absolute; inset: 0; transform-origin: 0 0; }
 
+.desktop-base { position: absolute; left: 0; top: 0; width: 1600px; height: 900px; background: #fff; transform-origin: 50% 50%; }
 .desktop-bg {
   position: absolute; left: 0; top: 0;
   width: 1600px; height: 900px;
@@ -134,8 +143,8 @@ img { user-select: none; -webkit-user-drag: none; }
 
 .cartridge {
   position: absolute;
-  left: 711px; top: 29px;
-  width: 149px;
+  left: 712px; top: 34px;
+  width: 147px;
   z-index: 1;
   padding: 0; border: 0; background: none;
   cursor: pointer;
@@ -147,9 +156,9 @@ img { user-select: none; -webkit-user-drag: none; }
 @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
 
 .console {
-  --cw: 412px;
+  --cw: 450px;                 /* console.png is 498 art px wide → 450 stage px (incl. side shoulder buttons) */
   position: absolute;
-  left: 576px; top: 318px;
+  left: 555px; top: 316px;
   width: var(--cw);
   z-index: 2;
   transform-origin: 0 0;
@@ -435,3 +444,250 @@ img { user-select: none; -webkit-user-drag: none; }
 .reduced-motion .cartridge img { animation: none; }
 .reduced-motion .card-wrap, .reduced-motion .menu-btn, .reduced-motion .btn { transition: none; }
 .reduced-motion .card-wrap:hover, .reduced-motion .card-wrap:has(.card:focus-visible) { transform: none; }
+
+
+/* ==========================================================================
+   GALLERY  (error popup → loader → desktop + Explorer)
+   Everything below is scoped to #gallery-*, .g-*, .xp-*, .viewer* so it cannot
+   affect the earlier screens.
+
+   The supplied gallery artwork was drawn on a 1366×768 canvas. One "art px"
+   = --u stage px, so every number below (written as N * var(--u)) is a pixel
+   measured on the supplied artwork and it scales with the stage automatically.
+   ========================================================================== */
+
+#stage { --s: calc(1600 / 1366); --u: calc(var(--s) * 1px); }
+
+#black-layer {
+  position: absolute; inset: 0; z-index: 4;
+  background: #000;
+  visibility: hidden; opacity: 0;
+  pointer-events: none;
+}
+.room-pale {                           /* "pale translucent overlay" behind the error popup */
+  position: absolute; inset: 0;
+  background: rgba(246, 238, 240, 0.6);
+  opacity: 0;
+}
+
+#gallery-error, #gallery-loading, #gallery-desktop { visibility: hidden; opacity: 0; }
+#gallery-error   { z-index: 5; }
+#gallery-loading { z-index: 6; display: grid; place-items: center; }
+#gallery-desktop { z-index: 7; overflow: hidden; background: #7d6bad; }
+
+/* ---------- shared: popups built on supplied art + real buttons laid over it ---------- */
+
+.g-popup { position: absolute; inset: 0; margin: auto; }
+.g-popup-error   { width: calc(695 * var(--u)); height: calc(425 * var(--u)); }
+.g-popup-loading { width: calc(598 * var(--u)); height: calc(184 * var(--u)); }
+.g-popup:focus { outline: none; }
+.g-art { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+.g-hit {
+  position: absolute;
+  left: calc(var(--x) * var(--u)); top: calc(var(--y) * var(--u));
+  width: calc(var(--w) * var(--u)); height: calc(var(--h) * var(--u));
+  margin: 0; padding: 0; border: 0;
+  background: transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.g-hit:hover:not(:disabled) { backdrop-filter: brightness(1.1); }
+.g-hit:active:not(:disabled) { backdrop-filter: brightness(0.9); }
+.g-hit:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; box-shadow: 0 0 0 2px #fff; }
+.g-hit:disabled { cursor: not-allowed; }
+
+/* Positions measured on the supplied popup art (x y w h in art px, relative to the popup) */
+#ge-ok    { --x: 226; --y: 308; --w: 243; --h: 64; }
+#ge-close { --x: 643; --y: 13;  --w: 41;  --h: 38; }
+#gl-close { --x: 555; --y: 5;   --w: 26;  --h: 25; }
+
+/* The loader art is a full bar. This body-grey cover hides segments that are not filled yet. */
+.g-bar-cover {
+  position: absolute;
+  left: calc(var(--cx, 526) * var(--u));
+  width: calc((526 - var(--cx, 526)) * var(--u));
+  top: calc(103 * var(--u)); height: calc(39 * var(--u));
+  background: #d9d9d9;
+  pointer-events: none;
+}
+
+.g-fail {
+  position: absolute; inset: 0; margin: auto;
+  width: 560px; height: fit-content; max-width: 90%;
+  padding: 30px 40px 28px;
+  background: var(--cream);
+  border: 4px solid var(--tan);
+  border-radius: 18px;
+  box-shadow: inset 0 0 0 6px var(--cream), inset 0 0 0 9px var(--tan), 0 18px 50px rgba(0, 0, 0, 0.5);
+  text-align: center;
+}
+.g-fail-title { margin: 0 0 14px; font-family: var(--font-pixel); font-weight: 700; font-size: 32px; letter-spacing: 0.04em; }
+.g-fail-text  { margin: 0; font-family: var(--font-body); font-weight: 500; font-size: 22px; }
+.g-fail-actions { margin-top: 24px; display: flex; gap: 16px; justify-content: center; }
+
+/* ---------- desktop ---------- */
+
+.g-wallpaper { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.g-layer { position: absolute; inset: 0; margin: 0; padding: 0; list-style: none; pointer-events: none; }
+
+/* Shortcut + quick-launch hit areas sit over the icons/labels already painted in the supplied desktop art. */
+.g-short:hover:not(:disabled) { backdrop-filter: brightness(1.14); background: rgba(255, 255, 255, 0.1); }
+
+.g-task-btn {
+  position: absolute; top: calc(727 * var(--u)); height: calc(36 * var(--u));
+  display: flex; align-items: center; gap: calc(8 * var(--u));
+  padding: 0 calc(12 * var(--u));
+  font-family: var(--font-pixel); font-weight: 600; font-size: calc(15 * var(--u)); letter-spacing: 0.03em;
+  color: #fff; text-shadow: 0 1px 0 rgba(40, 20, 80, 0.45);
+  background: linear-gradient(#a995d3, #8975bd);
+  border: 2px solid #67529c; border-radius: 5px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  cursor: pointer; pointer-events: auto;
+  white-space: nowrap;
+}
+.g-task-btn:hover { background: linear-gradient(#b8a7de, #9784c9); }
+.g-task-btn:focus-visible { outline: 3px solid #fff; outline-offset: 2px; box-shadow: 0 0 0 5px var(--focus); }
+.g-task-btn img { height: calc(22 * var(--u)); width: auto; }
+.g-task-window { left: calc(600 * var(--u)); width: calc(200 * var(--u)); }
+.g-task-return { left: calc(812 * var(--u)); width: calc(168 * var(--u)); justify-content: center; }
+
+/* ---------- Explorer window ----------
+   The supplied frame is drawn once, then stretched with a 9-slice so Maximise fills the desktop
+   without distorting any detail:  slices (art px)  top 300 · right 230 · bottom 345 · left 600.
+   Stretch cells: x 600–630 (flat in every row) and y 300–310 (flat in the pane). */
+
+.xp-window {
+  position: absolute; z-index: 2;
+  width: calc(860 * var(--u)); height: calc(655 * var(--u));
+  left: calc(50% - 430 * var(--u));
+  top: calc((722 * var(--u) - 655 * var(--u)) / 2);      /* centred in the desktop above the taskbar */
+}
+.xp-window.is-max { left: 0; top: 0; width: 100%; height: calc(722 * var(--u)); }
+
+.xp-frame {
+  position: absolute; inset: 0;
+  border-style: solid; border-color: transparent;
+  border-width: calc(300 * var(--u)) calc(230 * var(--u)) calc(345 * var(--u)) calc(600 * var(--u));
+  border-image-source: var(--img-explorer);
+  border-image-slice: 300 230 345 600 fill;
+  border-image-width: calc(300 * var(--u)) calc(230 * var(--u)) calc(345 * var(--u)) calc(600 * var(--u));
+  border-image-repeat: stretch;
+  /* The whole frame, stretched, sits UNDER the slices: it fills the hairline where two slices meet.
+     At normal size it is pixel-identical to the slices; maximised, it only ever shows through that 1px seam. */
+  background: var(--img-explorer) 0 0 / 100% 100% no-repeat;
+  background-origin: border-box;                          /* size it against the whole box, not the (tiny) padding box */
+  image-rendering: auto;                                  /* this artwork is soft, so smooth scaling looks right */
+}
+
+/* Patches: a rectangle of the frame's OWN art, copied from a clean spot, used to hide baked-in text.
+   --dx/--dy/--w/--h = where it goes, --sx/--sy = where it is copied from (art px in the frame). */
+.xp-patch, .xp-side-sprite {
+  position: absolute;
+  background-image: var(--img-explorer);
+  background-repeat: no-repeat;
+  background-size: calc(860 * var(--u)) calc(655 * var(--u));
+  background-position: calc(var(--sx) * var(--u) * -1) calc(var(--sy) * var(--u) * -1);
+  left: calc(var(--dx) * var(--u)); top: calc(var(--dy) * var(--u));
+  width: calc(var(--w) * var(--u)); height: calc(var(--h) * var(--u));
+  pointer-events: none;
+}
+.xp-patch-address  { --dx: 136; --dy: 143; --w: 150; --h: 26; --sx: 330; --sy: 143; }
+.xp-patch-status   { --dx: 20;  --w: 130; --h: 27; --sx: 330; --sy: 617; top: auto; bottom: calc(11 * var(--u)); }  /* bar sits on the bottom edge */
+.xp-patch-back-off { --dx: 26;  --dy: 91; --w: 38; --h: 36; --sx: 113; --sy: 91; transform: scaleX(-1); display: none; }  /* grey Forward, mirrored → disabled Back */
+.xp-patch-fwd-on   { --dx: 113; --dy: 91; --w: 38; --h: 36; --sx: 26;  --sy: 91; transform: scaleX(-1); display: none; }  /* green Back, mirrored → enabled Forward */
+.xp-window.no-back .xp-patch-back-off { display: block; }
+.xp-window.can-fwd .xp-patch-fwd-on   { display: block; }
+
+.xp-side-sprite { --dx: 16; --dy: 178; --w: 252; --h: 436; --sx: 16; --sy: 178; display: none; }
+.xp-side-fill {
+  position: absolute; display: none;
+  left: calc(18 * var(--u)); width: calc(244 * var(--u));
+  top: calc(614 * var(--u)); bottom: calc(41 * var(--u));
+  background: #aab59b; pointer-events: none;
+}
+.xp-window.is-max .xp-side-sprite, .xp-window.is-max .xp-side-fill { display: block; }
+
+/* Real buttons laid over the toolbar + window controls painted in the frame */
+.xp-hit { left: auto; top: calc(var(--y) * var(--u)); }
+.xp-back  { left: calc(24 * var(--u));  --y: 86; --w: 44; --h: 42; }
+.xp-fwd   { left: calc(110 * var(--u)); --y: 86; --w: 46; --h: 42; }
+.xp-up    { left: calc(203 * var(--u)); --y: 84; --w: 44; --h: 44; }
+.xp-min   { right: calc(90 * var(--u)); --y: 9; --w: 34; --h: 34; }
+.xp-max   { right: calc(51 * var(--u)); --y: 9; --w: 34; --h: 34; }
+.xp-close { right: calc(13 * var(--u)); --y: 9; --w: 34; --h: 34; }
+.xp-up:disabled { backdrop-filter: grayscale(1) brightness(1.35) contrast(0.75); }
+
+/* Live text drawn over the patches */
+.xp-address, .xp-status {
+  position: absolute;
+  font-family: var(--font-pixel); font-weight: 500; font-size: calc(15 * var(--u)); letter-spacing: 0.02em;
+  color: #170f3a;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.xp-address { left: calc(144 * var(--u)); right: calc(150 * var(--u)); top: calc(143 * var(--u)); height: calc(26 * var(--u)); line-height: calc(26 * var(--u)); }
+.xp-status  { left: calc(22 * var(--u));  right: calc(120 * var(--u)); bottom: calc(11 * var(--u)); height: calc(27 * var(--u)); line-height: calc(27 * var(--u)); }
+
+/* Content pane */
+.xp-pane {
+  position: absolute;
+  left: calc(272 * var(--u)); top: calc(178 * var(--u)); right: calc(16 * var(--u)); bottom: calc(43 * var(--u));
+  padding: calc(12 * var(--u)) calc(8 * var(--u));
+  display: flex; flex-wrap: wrap; align-content: flex-start;
+  overflow: hidden auto;
+}
+.xp-pane:focus { outline: none; }
+.xp-item {
+  width: calc(98 * var(--u));
+  padding: calc(10 * var(--u)) calc(4 * var(--u)) calc(8 * var(--u));
+  display: flex; flex-direction: column; align-items: center; gap: calc(12 * var(--u));
+  background: transparent; border: 1px solid transparent; border-radius: 4px;
+  font: inherit; color: #170f3a;
+  cursor: pointer;
+}
+.xp-item img { height: calc(56 * var(--u)); width: auto; image-rendering: pixelated; pointer-events: none; }
+.xp-item.is-file img { height: calc(64 * var(--u)); }
+.xp-label {
+  font-family: var(--font-pixel); font-weight: 600; font-size: calc(15 * var(--u)); letter-spacing: 0.08em;
+  padding: 0 calc(4 * var(--u)); border-radius: 2px;
+}
+.xp-item:hover { background: rgba(148, 124, 205, 0.14); }
+.xp-item.is-selected { background: rgba(148, 124, 205, 0.3); border-color: rgba(113, 90, 168, 0.55); }
+.xp-item:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+/* ---------- image viewer popup ---------- */
+
+.modal.viewer {
+  width: 640px; padding: 0; overflow: hidden; text-align: left;
+  border: 3px solid #5b478f; border-radius: 8px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+}
+.viewer-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 8px 10px 8px 16px;
+  background: linear-gradient(#ab97d6, #8873bd);
+  color: #fff; text-shadow: 0 1px 0 rgba(40, 20, 80, 0.45);
+}
+.viewer-title { font-family: var(--font-pixel); font-weight: 600; font-size: 24px; letter-spacing: 0.04em; }
+.viewer-x {
+  width: 34px; height: 34px; padding: 0;
+  font: 600 18px/1 var(--font-pixel); color: #fff;
+  background: linear-gradient(#e68a7a, #c9564a);
+  border: 2px solid #fff; border-radius: 5px; cursor: pointer;
+}
+.viewer-x:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.viewer-body {
+  display: grid; place-items: center;
+  min-height: 340px; padding: 18px;
+  background: #fbf4ea;
+}
+.viewer-body img { max-width: 100%; max-height: 440px; object-fit: contain; }
+.viewer-empty {
+  width: 100%; min-height: 300px;
+  display: grid; place-content: center; gap: 8px; text-align: center;
+  border: 3px dashed #b8a9d9; border-radius: 10px;
+}
+.viewer-name { margin: 0; font-family: var(--font-pixel); font-weight: 700; font-size: 34px; letter-spacing: 0.05em; }
+.viewer-soon { margin: 0; font-family: var(--font-body); font-weight: 500; font-size: 24px; color: #5a4d4a; }
+.modal.viewer .modal-actions { margin: 0; padding: 12px; background: #efe6f7; text-align: center; }

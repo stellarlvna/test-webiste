@@ -16,6 +16,7 @@
     <!-- Matching blurred fill for any space around the 16:9 stage -->
     <div class="backdrop backdrop-desktop" aria-hidden="true"></div>
     <div class="backdrop backdrop-room" aria-hidden="true"></div>
+    <div class="backdrop backdrop-gallery" aria-hidden="true"></div>
 
     <main id="stage">
 
@@ -23,12 +24,15 @@
       <div id="room-layer" aria-hidden="true">
         <img class="room-bg pixel" data-asset="room" alt="" draggable="false">
         <div class="room-dim"></div>
+        <div class="room-pale"></div>   <!-- Gallery: pale overlay behind the error popup -->
       </div>
+      <div id="black-layer" aria-hidden="true"></div>   <!-- Gallery: bedroom → black fade -->
 
       <!-- SCREEN: cartridge (desktop + console) -->
       <section id="startup" data-screen="cartridge" aria-label="Start screen">
         <h1 class="sr-only">soul.exe</h1>
         <div id="world">
+          <div class="desktop-base" aria-hidden="true"></div>
           <img class="desktop-bg pixel" data-asset="desktop" alt="" draggable="false">
           <p class="instruction" id="instruction">insert game card to start.</p>
 
@@ -64,6 +68,80 @@
         <ul class="cards" id="cards"></ul>
       </section>
 
+      <!-- ======================= GALLERY (all ids/classes prefixed gallery-, g-, xp-) ======================= -->
+
+      <!-- Gallery 1: deliberate, fictional error popup (not a real JS error) -->
+      <section id="gallery-error" data-screen="error" role="alertdialog" aria-modal="true" aria-labelledby="ge-title" aria-describedby="ge-text">
+        <div class="g-popup g-popup-error">
+          <img class="g-art pixel" data-asset="errorPopup" alt="" draggable="false">
+          <h2 class="sr-only" id="ge-title">ERROR</h2>
+          <p class="sr-only" id="ge-text">FAILED TO EXECUTE. ERROR : CODE 162. CLICK 'OK' TO RESOLVE</p>
+          <!-- The popup art already contains the text, OK button and X, so these are real, focusable buttons laid over it -->
+          <button class="g-hit" id="ge-ok" type="button" aria-label="OK"></button>
+          <button class="g-hit" id="ge-close" type="button" aria-label="Close and return to the title menu"></button>
+        </div>
+      </section>
+
+      <!-- Gallery 2: loading dialog (+ Retry / Back panel if an asset fails) -->
+      <section id="gallery-loading" data-screen="loading" role="dialog" aria-modal="true" aria-labelledby="gl-title">
+        <div class="g-popup g-popup-loading" id="gl-dialog" tabindex="-1">
+          <img class="g-art pixel" data-asset="loadingDialog" alt="" draggable="false">
+          <i class="g-bar-cover" id="gl-cover" aria-hidden="true"></i>
+          <h2 class="sr-only" id="gl-title">Loading</h2>
+          <div class="sr-only" id="gl-progress" role="progressbar" aria-labelledby="gl-title" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+          <button class="g-hit" id="gl-close" type="button" aria-label="Cancel loading and return to the title menu"></button>
+        </div>
+        <div class="g-fail" id="gl-fail" role="alert" hidden>
+          <h2 class="g-fail-title">Couldn’t load the gallery</h2>
+          <p class="g-fail-text" id="gl-fail-text"></p>
+          <div class="g-fail-actions">
+            <button class="btn" id="gl-retry" type="button">Retry</button>
+            <button class="btn" id="gl-back" type="button">Back</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Gallery 3–5: desktop + Explorer. Shortcuts/taskbar buttons are rendered from DESKTOP in script.js -->
+      <section id="gallery-desktop" data-screen="desktop" aria-label="Gallery desktop">
+        <img class="g-wallpaper pixel" data-asset="galleryDesktop" data-lazy alt="" draggable="false">
+        <h2 class="sr-only">Desktop</h2>
+        <ul class="g-layer" id="g-shortcuts"></ul>
+
+        <div class="xp-window" id="xp" role="group" aria-label="My Projects window" hidden>
+          <div class="xp-frame" aria-hidden="true"></div>
+          <!-- sidebar patch, only shown when the window is maximised -->
+          <i class="xp-side-fill" aria-hidden="true"></i>
+          <i class="xp-side-sprite" aria-hidden="true"></i>
+          <!-- patches of the frame's own art that hide the baked-in "My Projects" address and "0 objects" text -->
+          <i class="xp-patch xp-patch-address" aria-hidden="true"></i>
+          <i class="xp-patch xp-patch-status" aria-hidden="true"></i>
+          <!-- mirrored Back/Forward art so each can look enabled or disabled -->
+          <i class="xp-patch xp-patch-back-off" aria-hidden="true"></i>
+          <i class="xp-patch xp-patch-fwd-on" aria-hidden="true"></i>
+
+          <button class="g-hit xp-hit xp-back" id="xp-back" type="button" aria-label="Back" title="Back"></button>
+          <button class="g-hit xp-hit xp-fwd" id="xp-fwd" type="button" aria-label="Forward" title="Forward"></button>
+          <button class="g-hit xp-hit xp-up" id="xp-up" type="button" aria-label="Up one level" title="Up"></button>
+
+          <button class="g-hit xp-hit xp-min" id="xp-min" type="button" aria-label="Minimise" title="Minimise"></button>
+          <button class="g-hit xp-hit xp-max" id="xp-max" type="button" aria-label="Maximise" aria-pressed="false" title="Maximise"></button>
+          <button class="g-hit xp-hit xp-close" id="xp-close" type="button" aria-label="Close window" title="Close"></button>
+
+          <div class="xp-address" id="xp-address" role="textbox" aria-readonly="true" aria-label="Address"></div>
+          <div class="xp-pane" id="xp-pane" tabindex="-1" role="group" aria-label="Folder contents"></div>
+          <div class="xp-status" id="xp-status" role="status"></div>
+        </div>
+
+        <div class="g-layer" id="g-taskbar">
+          <button class="g-task-btn g-task-window" id="tb-window" type="button" hidden>
+            <img class="pixel" data-asset="iconFolder" data-lazy alt="" draggable="false"><span>My Projects</span>
+          </button>
+          <button class="g-task-btn g-task-return" id="tb-return" type="button">
+            <span aria-hidden="true">◀</span><span>Return to room</span>
+          </button>
+        </div>
+      </section>
+
       <!-- Modals -->
       <div id="modal-layer" hidden>
         <div class="modal-scrim" data-close></div>
@@ -88,6 +166,21 @@
           <div class="modal-actions">
             <button class="btn" type="button" data-close>Close</button>
           </div>
+        </div>
+
+        <div class="modal viewer" id="viewer-modal" role="dialog" aria-modal="true" aria-labelledby="viewer-title" hidden tabindex="-1">
+          <div class="viewer-bar">
+            <span class="viewer-title" id="viewer-title"></span>
+            <button class="viewer-x" type="button" data-close aria-label="Close preview">✕</button>
+          </div>
+          <div class="viewer-body">
+            <img id="viewer-img" alt="" hidden>
+            <div class="viewer-empty" id="viewer-empty" hidden>
+              <p class="viewer-name" id="viewer-name"></p>
+              <p class="viewer-soon">Preview coming soon</p>
+            </div>
+          </div>
+          <div class="modal-actions"><button class="btn" type="button" data-close>Close</button></div>
         </div>
       </div>
 
